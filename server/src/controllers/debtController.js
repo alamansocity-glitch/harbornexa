@@ -603,7 +603,7 @@ const cancelDebt = async (req, res, next) => {
 const recordPayment = async (req, res, next) => {
   try {
     const { debtId } = req.params;
-    const { amount, paymentDate, paymentMethod, referenceNo, notes, idempotencyKey } = req.body;
+    const { amount, paymentDate, paymentMethod, referenceNo, notes, idempotencyKey, nextDueDate, daysAllowed } = req.body;
 
     if (!idempotencyKey || typeof idempotencyKey !== 'string' || !idempotencyKey.trim()) {
       return res.status(400).json({ success: false, message: 'Idempotency key is required.' });
@@ -713,10 +713,40 @@ const recordPayment = async (req, res, next) => {
         newDebtStatus = 'PARTIALLY_PAID';
       }
 
+      // Calculate next due date if daysAllowed or nextDueDate is provided
+      let targetDueDate = null;
+      if (nextDueDate) {
+        targetDueDate = new Date(`${String(nextDueDate).trim()}T00:00:00.000Z`);
+      } else if (daysAllowed && Number(daysAllowed) > 0) {
+        const d = new Date();
+        d.setDate(d.getDate() + Number(daysAllowed));
+        targetDueDate = d;
+      }
+
+      const updateDebtData = { status: newDebtStatus };
+      if (targetDueDate) {
+        updateDebtData.due_date = targetDueDate;
+      }
+
       await tx.fisher_debts.update({
         where: { id: debtIdBig },
-        data: { status: newDebtStatus },
+        data: updateDebtData,
       });
+
+      // If there is an active installment plan for this debt, also advance the next unpaid due
+      if (targetDueDate) {
+        const activePlan = await tx.installment_plans.findFirst({
+          where: { debt_id: debtIdBig, status: 'ACTIVE' },
+          include: { installment_dues: { orderBy: { installment_number: 'asc' } } },
+        });
+        if (activePlan && activePlan.installment_dues.length > 0) {
+          const firstDue = activePlan.installment_dues[0];
+          await tx.installment_dues.update({
+            where: { id: firstDue.id },
+            data: { due_date: targetDueDate },
+          });
+        }
+      }
 
       return { createdPayment, debt, newDebtStatus };
     });

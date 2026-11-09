@@ -417,6 +417,7 @@ export const FishersPage = () => {
                     <th className="py-3.5 px-4">Fisher</th>
                     <th className="py-3.5 px-4">NIC</th>
                     <th className="py-3.5 px-4">Phone</th>
+                    <th className="py-3.5 px-4">Loan (Rs.)</th>
                     <th className="py-3.5 px-4">Boat No.</th>
                     <th className="py-3.5 px-4">Status</th>
                     <th className="py-3.5 px-4">Updated</th>
@@ -446,6 +447,18 @@ export const FishersPage = () => {
                       {/* Phone */}
                       <td className="py-3.5 px-4 font-medium text-[#111827]">
                         {fisher.phone || <span className="text-slate-400">—</span>}
+                      </td>
+
+                      {/* Loan (Rs.) next to Phone */}
+                      <td className="py-3.5 px-4 font-extrabold">
+                        {fisher.loan_amount && Number(fisher.loan_amount) > 0 ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 border border-amber-200 text-amber-900 font-extrabold text-xs">
+                            <Coins className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Rs. {Number(fisher.loan_amount).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                          </span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
                       </td>
 
                       {/* Boat No */}
@@ -612,6 +625,18 @@ export const FishersPage = () => {
                       <Ship className="w-3.5 h-3.5 text-slate-400" />
                       <span className="font-bold">{fisher.boat_no || 'No Boat'}</span>
                     </div>
+                    {fisher.phone && (
+                      <div className="flex items-center gap-1.5 text-slate-600 col-span-2">
+                        <Phone className="w-3.5 h-3.5 text-slate-400" />
+                        <span>{fisher.phone}</span>
+                      </div>
+                    )}
+                    {fisher.loan_amount && Number(fisher.loan_amount) > 0 && (
+                      <div className="flex items-center gap-1.5 text-amber-900 col-span-2 font-extrabold">
+                        <Coins className="w-3.5 h-3.5 text-amber-600" />
+                        <span>Loan: Rs. {Number(fisher.loan_amount).toLocaleString('en-LK', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      </div>
+                    )}
                   </div>
 
                   <div className="flex items-center justify-between pt-2 border-t border-slate-100 text-xs" onClick={(e) => e.stopPropagation()}>

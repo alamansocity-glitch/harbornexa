@@ -9,6 +9,8 @@ export const RecordPaymentModal = ({ isOpen, onClose, onSubmit, debt }) => {
     referenceNo: '',
     notes: '',
     idempotencyKey: '',
+    daysAllowed: 15,
+    nextDueDate: '',
   });
 
   const [error, setError] = useState('');
@@ -21,6 +23,10 @@ export const RecordPaymentModal = ({ isOpen, onClose, onSubmit, debt }) => {
         ? crypto.randomUUID()
         : 'KEY-' + Date.now() + '-' + Math.random().toString(36).substring(2, 9);
 
+      const defaultDays = 15;
+      const defaultNextDate = new Date();
+      defaultNextDate.setDate(defaultNextDate.getDate() + defaultDays);
+
       setFormData({
         amount: debt.outstanding_amount || '',
         paymentDate: new Date().toISOString().split('T')[0],
@@ -28,6 +34,8 @@ export const RecordPaymentModal = ({ isOpen, onClose, onSubmit, debt }) => {
         referenceNo: '',
         notes: '',
         idempotencyKey: newKey,
+        daysAllowed: defaultDays,
+        nextDueDate: defaultNextDate.toISOString().split('T')[0],
       });
       setError('');
     }
@@ -262,6 +270,69 @@ export const RecordPaymentModal = ({ isOpen, onClose, onSubmit, debt }) => {
             </div>
 
           </div>
+
+          {/* Active Permission / Next Due Date Section (when debt has remaining balance) */}
+          {!isFullPayment && balanceAfterPayment > 0 && (
+            <div className="p-3.5 bg-emerald-50/70 border border-emerald-200 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-bold text-emerald-900">
+                  Next Due In / Active Permission (அடுத்த தவணைக்கான நாட்கள்)
+                </label>
+                <span className="text-[10px] font-bold text-emerald-700 bg-white border border-emerald-300 px-2 py-0.5 rounded-full">
+                  Auto-Block on Due
+                </span>
+              </div>
+              <p className="text-[11px] text-emerald-800 leading-relaxed">
+                இந்த நாட்கள் முடியும் வரை Fisher <strong>ACTIVE</strong> ஆக இருப்பார். அடுத்த தவணை கட்டாவிட்டால் தானாகவே <strong>BLOCKED</strong> ஆவார்.
+              </p>
+
+              {/* Quick day buttons */}
+              <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                {[7, 10, 15, 20, 30].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => {
+                      const dt = new Date();
+                      dt.setDate(dt.getDate() + d);
+                      setFormData((prev) => ({
+                        ...prev,
+                        daysAllowed: d,
+                        nextDueDate: dt.toISOString().split('T')[0],
+                      }));
+                    }}
+                    className={`px-3 py-1 text-xs font-extrabold rounded-lg border transition-all cursor-pointer ${
+                      formData.daysAllowed === d
+                        ? 'bg-emerald-600 text-white border-emerald-600 shadow-xs'
+                        : 'bg-white text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                    }`}
+                  >
+                    {d} Days
+                  </button>
+                ))}
+              </div>
+
+              {/* Custom Date Picker */}
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-[11px] font-semibold text-slate-700 shrink-0">அடுத்த தவணை நாள் (Next Due):</span>
+                <input
+                  type="date"
+                  name="nextDueDate"
+                  value={formData.nextDueDate || ''}
+                  onChange={(e) => {
+                    const chosen = e.target.value;
+                    const diffDays = chosen ? Math.ceil((new Date(chosen) - new Date()) / (1000 * 60 * 60 * 24)) : 0;
+                    setFormData((prev) => ({
+                      ...prev,
+                      nextDueDate: chosen,
+                      daysAllowed: diffDays > 0 ? diffDays : null,
+                    }));
+                  }}
+                  className="px-2.5 py-1 bg-white border border-emerald-300 rounded-lg text-xs font-bold text-emerald-900 focus:outline-none focus:ring-2 focus:ring-emerald-400"
+                />
+              </div>
+            </div>
+          )}
 
           {/* Reference No */}
           <div>

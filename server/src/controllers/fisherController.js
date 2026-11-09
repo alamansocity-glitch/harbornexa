@@ -57,6 +57,12 @@ const getFishers = async (req, res, next) => {
     // 2. Fetch matching fishers via Prisma
     const rawItems = await prisma.fishers.findMany({
       where: whereConditions,
+      include: {
+        fisher_debts: {
+          where: { status: { not: 'CANCELLED' } },
+          select: { original_amount: true, status: true },
+        },
+      },
       orderBy: { id: 'desc' },
     });
 
@@ -73,8 +79,22 @@ const getFishers = async (req, res, next) => {
     const enrichedItems = rawItems.map((rawItem) => {
       const item = mapFisherResponse(rawItem);
       const clearance = clearanceMap.get(String(rawItem.id));
+
+      // Calculate total original loan amount from non-cancelled debts
+      let totalLoan = 0;
+      if (rawItem.fisher_debts && rawItem.fisher_debts.length > 0) {
+        for (const d of rawItem.fisher_debts) {
+          totalLoan += Number(d.original_amount || 0);
+        }
+      }
+
+      const outstandingDebt = clearance?.outstandingDebt ? Number(clearance.outstandingDebt) : 0;
+      const displayLoan = outstandingDebt > 0 ? outstandingDebt : totalLoan;
+
       return {
         ...item,
+        loan_amount: displayLoan > 0 ? displayLoan.toFixed(2) : null,
+        outstanding_debt: clearance?.outstandingDebt || '0.00',
         effectiveStatus: clearance ? clearance.status : 'CLEARED', // 'CLEARED' | 'HOLD' | 'PENDING' | 'NOT_ELIGIBLE'
         clearanceDetails: clearance,
       };

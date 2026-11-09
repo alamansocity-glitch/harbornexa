@@ -236,11 +236,23 @@ const evaluateFisherClearance = ({
     const linkedPlan = planMap.get(debtIdStr);
 
     if (!linkedPlan || linkedPlan.status === 'CANCELLED') {
-      // Legacy debt with balance > 0 and no active/completed installment plan -> OUTSTANDING_DEBT
+      // If debt has a future due_date (e.g. 15 days active permission granted by admin),
+      // it is NOT overdue yet! Hold is suppressed until due_date expires!
+      if (debt.due_date) {
+        const debtDueDateStr = debt.due_date instanceof Date
+          ? debt.due_date.toISOString().slice(0, 10)
+          : String(debt.due_date).slice(0, 10);
+        if (todayStr <= debtDueDateStr) {
+          // Within allowed days! Still active/cleared, no hold!
+          continue;
+        }
+      }
+
+      // Past due date or no due date with balance > 0 -> OUTSTANDING_DEBT (HOLD)
       debtHoldTriggered = true;
       reasons.push({
         code: 'OUTSTANDING_DEBT',
-        label: 'மீதிக் கடன்',
+        label: debt.due_date ? 'தவணை நாள் முடிவடைந்தது / Overdue Debt' : 'மீதிக் கடன்',
         amount: debtCurrentBalance.toFixed(2),
         debtId: debtIdStr,
       });
@@ -332,7 +344,7 @@ const loadClearanceData = async (client, fisherIdFilter) => {
     }),
     () => client.fisher_debts.findMany({
       where: { fisher_id: fisherIdFilter, status: { not: 'CANCELLED' } },
-      select: { id: true, fisher_id: true, original_amount: true },
+      select: { id: true, fisher_id: true, original_amount: true, due_date: true },
     }),
     () => client.debt_payments.findMany({
       where: { fisher_id: fisherIdFilter },
